@@ -1,7 +1,41 @@
+# Virtual environments
+.venv/
 venv/
-__pycache__/
-.env
-.claude/
+env/
 Scripts/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Node / Frontend
+node_modules/
+dist/
+.vite/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Office temp files
 ~$*
 *.pptx
+
+# Claude Code (local config only)
+.claude/settings.local.json

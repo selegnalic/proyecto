@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from app.schemas.chat import AnalyzeRequest, AnalyzeResponse
 from app.agents.review_agent import analyze_reviews
 
-router = APIRouter(prefix="/api", tags=["Analyze"])
+router = APIRouter(tags=["Analyze"])
 
 
 @router.post("/analyze-reviews", response_model=AnalyzeResponse)

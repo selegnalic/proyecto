@@ -1,8 +1,10 @@
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
+from pathlib import Path
 import os
-#lee tu archivo  .env y mete los valores como variables de entorno. 
-load_dotenv()
+
+# Carga app/.env sin importar desde dónde se ejecute uvicorn
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 
 class Settings(BaseSettings):

@@ -23,7 +23,7 @@ from app.schemas.chat import RecommendRequest, RecommendResponse, Product
 
 # prefix="/api" todas las rutas empiezan con /api
 # tags=["Recommend"] agrupa este endpoint visualmente en /docs
-router = APIRouter(prefix="/api", tags=["Recommend"])
+router = APIRouter(tags=["Recommend"])
 
 
 @router.post("/recommend", response_model=RecommendResponse)

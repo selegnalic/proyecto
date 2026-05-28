@@ -5,7 +5,7 @@ from app.agents.sales_agent import chat
 
 #prefix="/api" significa que todos los endpoints de este archivo empiezan con /api. tags=["Chat"] 
 # es para agruparlos en la documentación de /docs
-router = APIRouter(prefix="/api", tags=["Chat"])
+router = APIRouter(tags=["Chat"])
 
 #response_model=ChatResponse — FastAPI valida y documenta automáticamente la respuesta
 @router.post("/chat", response_model=ChatResponse) # FastAPI valida y documenta automáticamente la respuesta
