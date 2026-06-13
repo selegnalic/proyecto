@@ -1,5 +1,5 @@
 from typing import Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 #SkinType — define los tipos de piel válidos
 SkinType = Literal["seca", "grasa", "mixta", "normal", "sensible"]
 
@@ -10,6 +10,12 @@ class UserProfile(BaseModel):
     goal: Optional[str] = None
     budget: Optional[float] = None
     ready_to_recommend: bool = False
+    @field_validator('age')
+    @classmethod
+    def validate_age(cls, v):
+        if v is not None and (v < 13 or v > 100):
+            raise ValueError('La edad debe estar entre 13 y 100 años')
+        return v
 
 
 class ChatRequest(BaseModel):
@@ -24,8 +30,8 @@ class ChatResponse(BaseModel):
 
 class RecommendRequest(BaseModel):
     skin_type: SkinType
-    age: int
-    budget: float
+    age: int = Field(ge=13, le=100, description="Edad entre 13 y 100 años")
+    budget: float = Field(gt=0, description="Presupuesto en USD mayor a 0")
     goal: str
 
 class Product(BaseModel):

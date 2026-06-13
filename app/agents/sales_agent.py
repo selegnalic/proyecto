@@ -25,12 +25,14 @@ class AgentState(TypedDict): # la memoria del agente durante la conversación:
 
 #OnboardingOutput — estructura lo que regresa el LLM:
 class OnboardingOutput(BaseModel):
-    reply: str = Field(description="Mensaje para el usuario en español, tono cálido y profesional.")
+
+    reply: str= Field(description="Mensaje para el usuario en español, tono cálido y profesional.")
     skin_type: str | None = Field(default=None, description="seca|grasa|mixta|normal|sensible o null si no se sabe.")
     age: int | None = None
     goal: str | None = Field(default=None, description="Objetivo principal: hidratación, anti-edad, acné, manchas, etc.")
     budget: float | None = Field(default=None, description="Presupuesto total en MXN.")
     ready_to_recommend: bool = Field(default=False, description="True sólo si skin_type, age, goal y budget ya tienen valor.")
+
 
 
 
@@ -45,10 +47,13 @@ Reglas:
 - Al preguntar el presupuesto, especifica que los precios están en dólares americanos (USD).
 - Si el cliente da el presupuesto en pesos, conviértelo a USD usando una tasa aproximada de 17 pesos por dólar.
 - Si el cliente pregunta algo que NO tiene relación con el cuidado de la piel, responde ÚNICAMENTE con: "Soy un asistente especializado en cuidado de la piel. Solo puedo ayudarte con recomendaciones de productos y rutinas de skincare. ¿Te gustaría que te ayudara con eso?"
---
- Si el cliente envía código de programación, HTML, SQL, o cualquier texto que no sea una conversación normal, responde ÚNICAMENTE con: "Por favor, escribe tu consulta en lenguaje natural. Soy un asistente de skincare y solo entiendo preguntas sobre cuidado de la piel."
-
+- Si el cliente envía código de programación, HTML, SQL, o cualquier texto que no sea una conversación normal, responde ÚNICAMENTE con: "Por favor, escribe tu consulta en lenguaje natural. Soy un asistente de skincare y solo entiendo preguntas sobre cuidado de la piel."
+- Si el cliente indica una edad menor a 13 o mayor a 100 años, responde: "Por favor indica una edad válida entre 13 y 100 años."
+- Si el cliente indica un tipo de piel que no sea seca, grasa, mixta, normal o sensible, responde: "Por favor elige un tipo de piel válido: seca, grasa, mixta, normal o sensible."
+- Si el cliente tiene entre 13 y 17 años, ajusta las recomendaciones a productos suaves y seguros para piel joven. Evita recomendar retinol, ácidos fuertes (AHA/BHA al más del 5%), vitamina C concentrada o productos con alcohol. Enfócate en limpieza suave, hidratación y protector solar.
+- Si el cliente tiene entre 13 y 17 años y pregunta por productos anti-edad o con ingredientes fuertes, responde: "Para tu edad te recomiendo productos más suaves. Los ingredientes como retinol o ácidos fuertes pueden irritar la piel joven. Me enfocaré en productos seguros y efectivos para ti."
 Perfil actual del cliente: {profile}"""
+
 def _onboarding_node(state: AgentState) -> dict:
     llm = get_llm(temperature=0.4).with_structured_output(OnboardingOutput)
     profile = state.get("profile", {})
@@ -57,7 +62,7 @@ def _onboarding_node(state: AgentState) -> dict:
     result: OnboardingOutput = llm.invoke(
         [SystemMessage(content=system), *state["messages"]]
     )
-
+   
     new_profile = {
         "skin_type": result.skin_type or profile.get("skin_type"),
         "age": result.age or profile.get("age"),
@@ -76,6 +81,7 @@ def _recommend_node(state: AgentState) -> dict:
     profile = state["profile"]
     query = f"Piel {profile['skin_type']}, objetivo {profile['goal']}, edad {profile['age']}"
     hits = search_catalog(query, k=5, budget=profile["budget"])
+    print(">>> HITS:", hits[0] if hits else "vacío")
 
     if not hits:
         reply = (
@@ -84,24 +90,35 @@ def _recommend_node(state: AgentState) -> dict:
         )
         return {"messages": [AIMessage(content=reply)]}
 
-    catalog_ctx = "\n\n".join(f"- {h['name']} ({h['brand']}, ${h['price']:.0f}): {h['description']}" for h in hits)
+
+    catalog_ctx = "\n\n".join(
+    f"- {h['name']} ({h['brand']}, ${h['price']:.0f}): {h['description']}\n"
+    f"  - Amazon: {h.get('amazon_url', '')}\n"
+    f"  - Sephora: {h.get('sephora_url', '')}"
+    for h in hits)
     total = sum(h["price"] for h in hits[:3])
 
     llm = get_llm(temperature=0.5)
+
+    # Regla de edad para menores
+    age_rule = ""
+    if profile.get("age") and profile["age"] < 18:
+        age_rule = "\nIMPORTANTE: El cliente es menor de edad. NUNCA recomiendes productos con retinol, ácidos AHA/BHA al más del 5%, vitamina C concentrada o alcohol. Solo recomienda productos suaves y seguros para piel joven. Menciona al cliente que los productos fuertes no son recomendados para su edad."
+
     prompt = f"""Perfil: {profile}
 
-Productos candidatos del catálogo:
-{catalog_ctx}
+    Productos candidatos del catálogo:
+    {catalog_ctx}
 
-Presupuesto total del cliente: ${profile['budget']:.0f}
-Total estimado de los 3 primeros: ${total:.0f}
+    Presupuesto total del cliente: ${profile['budget']:.0f}
+    Total estimado de los 3 primeros: ${total:.0f}
+    {age_rule}
+    Genera una recomendación en español con:
+    1. Una rutina de 3-4 pasos usando los productos del catálogo (mañana o noche según objetivo).
+    2. Justificación breve de cada producto.
+    3. Total estimado.
 
-Genera una recomendación en español con:
-1. Una rutina de 3-4 pasos usando los productos del catálogo (mañana o noche según objetivo).
-2. Justificación breve de cada producto.
-3. Total estimado.
-
-NUNCA inventes productos que no estén en la lista anterior. Responde en markdown."""
+    NUNCA inventes productos que no estén en la lista anterior. Responde en markdown."""
 
     response = llm.invoke([SystemMessage(content=prompt)])
     return {"messages": [AIMessage(content=response.content)]}
